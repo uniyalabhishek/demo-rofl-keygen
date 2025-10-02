@@ -1,0 +1,13 @@
+services:
+  demo:
+    image: ${IMAGE} # MUST be an FQDN (e.g., docker.io/youruser/demo-rofl-keygen:0.1.0 or ghcr.io/yourorg/demo-rofl-keygen:0.1.0)
+    platform: linux/amd64
+    environment:
+      - PORT=${PORT:-8080}
+      - KEY_ID=${KEY_ID:-evm:base:sepolia}
+      - BASE_RPC_URL=${BASE_RPC_URL:-https://sepolia.base.org}
+      - BASE_CHAIN_ID=${BASE_CHAIN_ID:-84532}
+    ports:
+      - "8080:8080"
+    volumes:
+      - /run/rofl-appd.sock:/run/rofl-appd.sock
