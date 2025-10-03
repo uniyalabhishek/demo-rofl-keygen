@@ -1,10 +1,9 @@
 import { request } from "node:http";
 import { existsSync } from "node:fs";
 
-/**
- * The public docs list "raw-386" (meant as 384-bit entropy). Accept both spellings for compatibility.
- */
-export type KeyKind = "secp256k1" | "ed25519" | "raw-256" | "raw-384" | "raw-386";
+const APPD_SOCKET = "/run/rofl-appd.sock";
+
+export type KeyKind = "secp256k1" | "ed25519" | "raw-256" | "raw-386";
 
 /**
  * generateKey
@@ -12,10 +11,9 @@ export type KeyKind = "secp256k1" | "ed25519" | "raw-256" | "raw-384" | "raw-386
  * Returns a 0x-prefixed hex private key string.
  */
 export async function generateKey(keyId: string, kind: KeyKind = "secp256k1"): Promise<string> {
-  const socketPath = "/run/rofl-appd.sock";
   const payload = JSON.stringify({ key_id: keyId, kind });
 
-  if (!existsSync(socketPath)) {
+  if (!existsSync(APPD_SOCKET)) {
     throw new Error(
       "rofl-appd socket not found at /run/rofl-appd.sock. " +
         "This endpoint only works inside a ROFL machine."
@@ -26,7 +24,7 @@ export async function generateKey(keyId: string, kind: KeyKind = "secp256k1"): P
     const req = request(
       {
         method: "POST",
-        socketPath,
+        socketPath: APPD_SOCKET,
         path: "/rofl/v1/keys/generate",
         headers: {
           "Content-Type": "application/json",
@@ -56,6 +54,33 @@ export async function generateKey(keyId: string, kind: KeyKind = "secp256k1"): P
   });
 }
 
+export async function getAppId(): Promise<string> {
+  if (!existsSync(APPD_SOCKET)) {
+    throw new Error("rofl-appd socket not found at /run/rofl-appd.sock.");
+  }
+  return new Promise((resolve, reject) => {
+    const req = request(
+      {
+        method: "GET",
+        socketPath: APPD_SOCKET,
+        path: "/rofl/v1/app/id"
+      },
+      (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (c) => (body += c));
+        res.on("end", () => {
+          const id = body.trim();
+          if (!/^rofl1[0-9a-z]+$/.test(id)) return reject(new Error(`Bad app id: ${body}`));
+          resolve(id);
+        });
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
 /**
  * getEvmPrivateKey
  * Wrapper that first tries ROFL keygen. If not available and LOCAL_DEV_PK is set,
@@ -65,8 +90,9 @@ export async function getEvmPrivateKey(keyId: string): Promise<string> {
   try {
     return await generateKey(keyId, "secp256k1");
   } catch (err) {
+    const allowLocal = process.env.ALLOW_LOCAL_DEV === "true";
     const fallback = process.env.LOCAL_DEV_PK;
-    if (fallback && /^0x[0-9a-fA-F]{64}$/.test(fallback)) {
+    if (allowLocal && fallback && /^0x[0-9a-fA-F]{64}$/.test(fallback)) {
       return fallback;
     }
     throw err;

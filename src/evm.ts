@@ -1,4 +1,4 @@
-import { JsonRpcProvider, Wallet, parseEther, type TransactionReceipt } from "ethers";
+import { JsonRpcProvider, Wallet, parseEther, type TransactionReceipt, ContractFactory } from "ethers";
 
 export function makeProvider(rpcUrl: string, chainId: number) {
   return new JsonRpcProvider(rpcUrl, chainId);
@@ -25,4 +25,21 @@ export async function sendEth(wallet: Wallet, to: string, amountEth: string): Pr
     throw new Error("Transaction dropped or replaced before confirmation");
   }
   return receipt;
+}
+
+export async function deployContract(
+  wallet: Wallet,
+  abi: any[],
+  bytecode: string,
+  args: unknown[] = []
+): Promise<{ address: string; receipt: TransactionReceipt }> {
+  const factory = new ContractFactory(abi, bytecode, wallet);
+  const contract = await factory.deploy(...args);
+  const deployTx = contract.deploymentTransaction();
+  const receipt = await deployTx?.wait();
+  await contract.waitForDeployment();
+  if (!receipt) {
+    throw new Error("Deployment TX not mined");
+  }
+  return { address: contract.target as string, receipt };
 }

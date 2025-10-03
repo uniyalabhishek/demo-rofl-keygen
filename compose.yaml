@@ -1,6 +1,6 @@
 services:
   demo:
-    image: ${IMAGE} # MUST be an FQDN (e.g., docker.io/youruser/demo-rofl-keygen:0.1.0 or ghcr.io/yourorg/demo-rofl-keygen:0.1.0)
+    image: ghcr.io/uniyalabhishek/demo-rofl-keygen:0.2.0
     platform: linux/amd64
     environment:
       - PORT=${PORT:-8080}

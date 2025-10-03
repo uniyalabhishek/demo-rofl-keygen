@@ -1,7 +1,7 @@
 {
   "name": "demo-rofl-keygen",
-  "version": "0.1.0",
-  "description": "Minimal ROFL example: generate secp256k1 key via appd REST, sign & send ETH on Base Sepolia.",
+  "version": "0.2.0",
+  "description": "Minimal ROFL example: generate secp256k1 key via appd REST, sign, deploy & send ETH on Base Sepolia.",
   "type": "module",
   "main": "dist/server.js",
   "license": "Apache-2.0",
@@ -10,11 +10,17 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:all": "npm run build && npm run compile:contracts",
     "start": "node dist/server.js",
     "dev": "tsx src/server.ts",
     "get-address": "tsx src/scripts/get-address.ts",
     "sign-message": "tsx src/scripts/sign-message.ts",
-    "send-eth": "tsx src/scripts/send-eth.ts"
+    "send-eth": "tsx src/scripts/send-eth.ts",
+    "get-app-id": "tsx src/scripts/get-app-id.ts",
+    "deploy-contract:dev": "tsx src/scripts/deploy-contract.ts",
+    "deploy-contract": "node dist/scripts/deploy-contract.js",
+    "compile:contracts": "hardhat compile",
+    "deploy-counter": "npm run compile:contracts && node dist/scripts/deploy-contract.js ./artifacts/contracts/Counter.sol/Counter.json '[]'"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
@@ -25,6 +31,7 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^24.6.1",
+    "hardhat": "^2.22.10",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }

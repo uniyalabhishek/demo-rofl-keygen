@@ -1,9 +1,11 @@
 import "dotenv/config";
 import express, { type Request, type Response } from "express";
 import { z } from "zod";
-import { getEvmPrivateKey } from "./appd.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { getEvmPrivateKey, getAppId } from "./appd.js";
 import { privateKeyToWallet, checksumAddress } from "./keys.js";
-import { makeProvider, signPersonalMessage, sendEth } from "./evm.js";
+import { makeProvider, signPersonalMessage, sendEth, deployContract } from "./evm.js";
 
 const app = express();
 app.use(express.json());
@@ -14,6 +16,25 @@ const CHAIN_ID = Number(process.env.BASE_CHAIN_ID ?? "84532");
 
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ ok: true });
+});
+
+app.get("/app-id", async (_req: Request, res: Response) => {
+  try {
+    const appId = await getAppId();
+    res.json({ appId });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? "internal error" });
+  }
+});
+
+app.get("/info", async (_req: Request, res: Response) => {
+  try {
+    const appId = await getAppId().catch(() => null);
+    const rpcHost = new URL(RPC_URL).host;
+    res.json({ keyId: KEY_ID, chainId: CHAIN_ID, rpcHost, appId });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message ?? "internal error" });
+  }
 });
 
 app.get("/address", async (_req: Request, res: Response) => {
@@ -43,19 +64,45 @@ app.post("/send-eth", async (req: Request, res: Response) => {
   try {
     const schema = z.object({
       to: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-      amount: z.string().regex(/^\d+(\.\d+)?$/)
+      amount: z
+        .string()
+        .regex(/^\d+(\.\d+)?$/)
+        .refine((v) => Number(v) > 0, "amount must be > 0")
     });
     const { to, amount } = schema.parse(req.body);
 
-    // Normalize and validate checksum; will throw on invalid input.
     const toChecksummed = checksumAddress(to);
-
     const pk = await getEvmPrivateKey(KEY_ID);
     const w = privateKeyToWallet(pk).connect(makeProvider(RPC_URL, CHAIN_ID));
     const receipt = await sendEth(w, toChecksummed, amount);
     res.json({ txHash: receipt.hash, status: receipt.status });
   } catch (e: any) {
     res.status(400).json({ error: e?.message ?? "bad request" });
+  }
+});
+
+/**
+ * POST /deploy-counter
+ * Deploys the precompiled Counter.sol using the ROFL key on Base (Sepolia).
+ * Body: {} (no constructor args)
+ * Returns: { contractAddress, txHash, status }
+ */
+app.post("/deploy-counter", async (_req: Request, res: Response) => {
+  try {
+    const artifactPath = join(process.cwd(), "artifacts", "contracts", "Counter.sol", "Counter.json");
+    const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
+    const { abi, bytecode } = artifact ?? {};
+    if (!abi || !bytecode) {
+      throw new Error("Counter artifact missing abi/bytecode");
+    }
+
+    const pk = await getEvmPrivateKey(KEY_ID);
+    const wallet = privateKeyToWallet(pk).connect(makeProvider(RPC_URL, CHAIN_ID));
+    const { address, receipt } = await deployContract(wallet, abi, bytecode, []);
+
+    res.json({ contractAddress: address, txHash: receipt.hash, status: receipt.status });
+  } catch (e: any) {
+    res.status(400).json({ error: e?.message ?? "deploy failed" });
   }
 });
 
