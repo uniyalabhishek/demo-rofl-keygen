@@ -3,7 +3,7 @@
 - **Generates an EVM secp256k1 key inside ROFL** via the `appd` REST API (UNIX socket `/run/rofl-appd.sock`).
 - Derives the **EVM address** and **signs & sends** an EIP-1559 transaction on **Base Sepolia (chainId 84532)**.
 - **Deploys a sample contract** (`Counter.sol`) using the **ROFL key** — exposed via an HTTP endpoint for simplicity.
-- Exposes the **ROFL App ID** and basic runtime info to correlate on-chain state.
+- Exposes the **App ID** and basic runtime info to correlate on-chain state.
 
 - **Security**: Never log or print private keys. ROFL machine logs are **not encrypted**; the admin can access them, but they’re stored unencrypted on the node — keep secrets inside the TEE.
 
@@ -132,7 +132,7 @@ Proxy:
 
 ## 7) End-to-end flow (Base Sepolia)
 
-1. **Get the ROFL App ID** (useful for correlating on-chain state):
+1. **Get the App ID** (useful for correlating on-chain state):
 
    ```shell
    curl -s https://p8080.<...>.rofl.app/app-id | jq
