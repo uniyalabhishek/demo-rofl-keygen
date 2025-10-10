@@ -1,18 +1,23 @@
 # demo-rofl-keygen
 
-- **Generates an EVM secp256k1 key inside ROFL** via the `appd` REST API (UNIX socket `/run/rofl-appd.sock`).
-- Derives the **EVM address** and **signs & sends** an EIP-1559 transaction on **Base Sepolia (chainId 84532)**.
-- **Deploys a sample contract** (`Counter.sol`) using the **ROFL key** — exposed via an HTTP endpoint for simplicity.
-- Exposes the **App ID** and basic runtime info to correlate on-chain state.
+- **Generates an EVM secp256k1 key inside ROFL** via the `appd` REST API
+  (UNIX socket `/run/rofl-appd.sock`).
+- Derives the **EVM address**, **signs** a message, **deploys a contract**,
+  and **sends** an EIP‑1559 transaction on **Base Sepolia (chainId 84532)**.
+- Runs a **smoke test** on container start that demonstrates key generation,
+  message signing, and contract deployment (prints to logs), then idles so
+  you can inspect the output with the Oasis CLI.
 
-- **Security**: Never log or print private keys. ROFL machine logs are **not encrypted**; the admin can access them, but they’re stored unencrypted on the node — keep secrets inside the TEE.
+- **Security**: Never log or print secret keys. ROFL machine logs are not
+  encrypted at rest — keep secrets confined to the TEE.
 
 ## 1) Prerequisites
 
 - **Node 20+**
 - **Docker** with **buildx**
-- **Oasis CLI** (`oasis`) configured; some TEST funds on **Sapphire Testnet** for `rofl create/deploy`.
-- An account on **Docker Hub** or **GHCR** to push the application image.
+- **Oasis CLI** (`oasis`) configured; some TEST funds on **Sapphire
+  Testnet** for `rofl create/deploy`.
+- An account on **Docker Hub** or **GHCR** to push your image.
 
 ## 2) Configure environment
 
@@ -21,16 +26,18 @@ Copy and edit the `.env`:
 ```shell
 cp .env.example .env
 # Set IMAGE to your registry location (FQDN), e.g.:
-#   docker.io/<youruser>/demo-rofl-keygen:0.2.0
+#   docker.io/<youruser>/demo-rofl-keygen:0.1.0
 # or
-#   ghcr.io/<your-gh-username-or-org>/demo-rofl-keygen:0.2.0
+#   ghcr.io/<your-gh-username-or-org>/demo-rofl-keygen:0.1.0
 #
 # Optional local-only development (outside ROFL):
-#   Set LOCAL_DEV_PK to a throwaway 0x<64-hex> key, and ALLOW_LOCAL_DEV=true
-#   (fallback only used when /run/rofl-appd.sock is not present).
+#   Set LOCAL_DEV_SK to a throwaway 0x<64-hex> secret key and
+#   ALLOW_LOCAL_DEV=true (fallback is used only when /run/rofl-appd.sock
+#   is not present).
 ```
 
-Defaults target **Base Sepolia** (`BASE_RPC_URL=https://sepolia.base.org`, `BASE_CHAIN_ID=84532`).
+Defaults target **Base Sepolia**
+(`BASE_RPC_URL=https://sepolia.base.org`, `BASE_CHAIN_ID=84532`).
 
 ## 3) Install & build locally
 
@@ -41,23 +48,25 @@ npm ci
 npm run build:all   # compiles TS + Counter.sol via Hardhat
 ```
 
-Local development (outside ROFL) for convenience — **dev only**:
+Local development (outside ROFL) — **dev only**:
 
 ```shell
-export LOCAL_DEV_PK=0x<throwaway_private_key>  # DO NOT USE IN PRODUCTION
+export LOCAL_DEV_SK=0x<throwaway_secret_key>  # DO NOT USE IN PRODUCTION
 export ALLOW_LOCAL_DEV=true
-npm run dev
-# GET  http://localhost:8080/app-id
-# GET  http://localhost:8080/address
-# GET  http://localhost:8080/info
-# POST http://localhost:8080/sign-message {"message":"hello"}
-# POST http://localhost:8080/send-eth {"to":"0x...","amount":"0.001"}
-# POST http://localhost:8080/deploy-counter {}
+# CLI helpers:
+npm run get-address
+npm run sign-message -- "hello from rofl"
+# Deploy:
+npm run deploy-counter
+# Send ETH:
+npm run send-eth -- 0xYourSepoliaAddress 0.001
+# Note: get-app-id requires /run/rofl-appd.sock (i.e., inside ROFL).
 ```
 
 ## 4) Build & push the container image (Docker Hub or GHCR)
 
-- **Apple Silicon (M1/M2/M3)**: ROFL runs on **x86_64/TDX**, so **build amd64** images.
+- **Apple Silicon (M1/M2/M3)**: ROFL runs on **x86_64/TDX**, so build
+  **amd64** images.
 
 ### Docker Hub
 
@@ -65,7 +74,7 @@ npm run dev
 docker login
 docker buildx build \
   --platform linux/amd64 \
-  -t docker.io/<youruser>/demo-rofl-keygen:0.2.0 \
+  -t docker.io/<youruser>/demo-rofl-keygen:0.1.0 \
   --push .
 ```
 
@@ -75,14 +84,14 @@ docker buildx build \
 echo $CR_PAT | docker login ghcr.io -u <your-gh-username-or-org> --password-stdin
 docker buildx build \
   --platform linux/amd64 \
-  -t ghcr.io/<your-gh-username-or-org>/demo-rofl-keygen:0.2.0 \
+  -t ghcr.io/<your-gh-username-or-org>/demo-rofl-keygen:0.1.0 \
   --push .
 ```
 
 **(Recommended)** Pin the digest for integrity:
 
 ```shell
-docker buildx imagetools inspect <REGISTRY>/<ns>/demo-rofl-keygen:0.2.0
+docker buildx imagetools inspect <REGISTRY>/<ns>/demo-rofl-keygen:0.1.0
 # Then set IMAGE=...@sha256:<digest> in .env
 ```
 
@@ -110,93 +119,48 @@ oasis rofl deploy
 If `oasis rofl build` fails on Apple Silicon, use the official builder:
 
 ```shell
-docker run --platform linux/amd64 --volume "$PWD":/src -it ghcr.io/oasisprotocol/rofl-dev:main oasis rofl build
+docker run --platform linux/amd64 --volume "$PWD":/src \
+  -it ghcr.io/oasisprotocol/rofl-dev:main oasis rofl build
 ```
 
-## 6) Find your public HTTPS URL
+## 6) View the smoke-test output
 
-ROFL Proxy mints a URL for each published port. Get it with:
+The container runs a smoke test on startup and then idles. Inspect logs:
 
 ```shell
-oasis rofl machine show
+oasis rofl machine logs
 ```
 
-Look for the **Proxy** section, e.g.:
+**Expected flow:**
 
-```text
-Proxy:
-  Domain: m602.test-proxy-b.rofl.app
-  Ports from compose file:
-    8080 (demo): https://p8080.m602.test-proxy-b.rofl.app
+1. Prints **App ID** (inside ROFL).
+2. Prints **EVM address** and a **signed message**.
+3. Prompts you to **fund the address** with Base Sepolia ETH.
+4. After funding, it **deploys Counter.sol**.
+
+To send ETH back or to another address, use the CLI:
+
+```shell
+npm run send-eth -- 0xRecipientAddress 0.001
 ```
 
-## 7) End-to-end flow (Base Sepolia)
+## 7) Notes & Troubleshooting
 
-1. **Get the App ID** (useful for correlating on-chain state):
+- **appd socket**: The UNIX socket must be mounted at `/run/rofl-appd.sock`
+  (see `compose.yaml`). It exists **only inside** a ROFL machine.
+- **Local dev fallback**: If `/run/rofl-appd.sock` is missing and you set
+  `ALLOW_LOCAL_DEV=true` + `LOCAL_DEV_SK=0x<64-hex>`, the app will use the
+  local secret key **for dev only**.
+- **Logs**: Don’t print secrets — ROFL logs are not encrypted on the
+  provider.
+- **Apple Silicon**: Always build/push `--platform linux/amd64`. The
+  `compose.yaml` also sets `platform: linux/amd64`.
+- **RPC limits**: Public RPCs are rate-limited; prefer a dedicated Base RPC.
 
-   ```shell
-   curl -s https://p8080.<...>.rofl.app/app-id | jq
-   # → {"appId":"rofl1..."}
-   ```
+## 8) Useful scripts
 
-2. **Get the ROFL key address**:
-
-   ```shell
-   curl -s https://p8080.<...>.rofl.app/address | jq
-   # → {"keyId":"evm:base:sepolia","address":"0x...","chainId":84532}
-   ```
-
-3. **Fund the address** with Base Sepolia ETH (use any faucet / provider).
-
-4. **Sign a message**:
-
-   ```shell
-   curl -s -X POST https://p8080.<...>.rofl.app/sign-message \
-     -H 'content-type: application/json' \
-     -d '{"message":"hello from rofl"}' | jq
-   ```
-
-5. **Deploy a contract via the ROFL key (HTTP)**:
-
-   ```shell
-   curl -s -X POST https://p8080.<...>.rofl.app/deploy-counter \
-     -H 'content-type: application/json' -d '{}' | jq
-   # → {"contractAddress":"0x...","txHash":"0x...","status":1}
-   ```
-
-   **Alternatively (CLI inside the container image):**
-
-   ```shell
-   # Uses the compiled artifact that is baked into the image.
-   npm run deploy-counter
-   # or a generic artifact path:
-   npm run deploy-contract -- ./artifacts/contracts/Counter.sol/Counter.json '[]'
-   ```
-
-6. **Send ETH back** to your wallet:
-
-   ```shell
-   curl -s -X POST https://p8080.<...>.rofl.app/send-eth \
-     -H 'content-type: application/json' \
-     -d '{"to":"0xYourSepoliaAddress","amount":"0.001"}' | jq
-   ```
-
-7. **Verify the tx** on a Base Sepolia explorer (e.g., BaseScan).
-
-## 8) Notes & Troubleshooting
-
-- **appd socket**: The UNIX socket must be mounted at `/run/rofl-appd.sock` (see `compose.yaml`). It exists **only inside** a ROFL machine.
-- **Local dev fallback**: If `/run/rofl-appd.sock` is missing and you set `ALLOW_LOCAL_DEV=true` + `LOCAL_DEV_PK=0x<64-hex>`, the app will use the local key **for dev only**.
-- **Logs**: Don’t print secrets — ROFL logs are not encrypted on the provider.
-- **Apple Silicon**: Always build/push `--platform linux/amd64`. The `compose.yaml` also sets `platform: linux/amd64`.
-- **RPC limits**: Public RPCs are rate-limited; use a dedicated provider for sustained load.
-
-## 9) API Summary
-
-- `GET /health` → `{ ok: true }`
-- `GET /app-id` → `{ appId }`
-- `GET /info` → `{ keyId, chainId, rpcHost, appId }`
-- `GET /address` → `{ keyId, address, chainId }`
-- `POST /sign-message { "message": "<string>" }` → `{ signature, address }`
-- `POST /send-eth { "to": "0x..40 hex..", "amount": "0.001" }` → `{ txHash, status }`
-- `POST /deploy-counter {}` → `{ contractAddress, txHash, status }`
+- `npm run get-address`
+- `npm run sign-message -- "hello"`
+- `npm run deploy-counter`
+- `npm run send-eth -- 0x.. 0.001`
+- `npm run smoke-test` (runs locally after `npm run build`)

@@ -1,7 +1,7 @@
 import { Wallet, getAddress } from "ethers";
 
-export function privateKeyToWallet(pkHex: string): Wallet {
-  return new Wallet(pkHex);
+export function secretKeyToWallet(skHex: string): Wallet {
+  return new Wallet(skHex);
 }
 
 export function checksumAddress(addr: string): string {

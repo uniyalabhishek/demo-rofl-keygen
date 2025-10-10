@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { getEvmPrivateKey } from "../appd.js";
-import { privateKeyToWallet } from "../keys.js";
+import { getEvmSecretKey } from "../appd.js";
+import { secretKeyToWallet } from "../keys.js";
 import { makeProvider, sendEth } from "../evm.js";
 
 const RPC_URL = process.env.BASE_RPC_URL ?? "https://sepolia.base.org";
@@ -12,10 +12,12 @@ async function main() {
     console.error("Usage: npm run send-eth -- <toAddress> <amountETH>");
     process.exit(2);
   }
-  const pk = await getEvmPrivateKey(process.env.KEY_ID ?? "evm:base:sepolia");
-  const w = privateKeyToWallet(pk).connect(makeProvider(RPC_URL, CHAIN_ID));
+  const sk = await getEvmSecretKey(process.env.KEY_ID ?? "evm:base:sepolia");
+  const w = secretKeyToWallet(sk).connect(makeProvider(RPC_URL, CHAIN_ID));
   const rcpt = await sendEth(w, to, amount);
-  console.log(JSON.stringify({ txHash: rcpt.hash, status: rcpt.status }, null, 2));
+  console.log(
+    JSON.stringify({ txHash: rcpt.hash, status: rcpt.status }, null, 2)
+  );
 }
 
 main().catch((e) => {

@@ -4,8 +4,8 @@ export function makeProvider(rpcUrl: string, chainId: number) {
   return new JsonRpcProvider(rpcUrl, chainId);
 }
 
-export function connectWallet(pkHex: string, rpcUrl: string, chainId: number): Wallet {
-  const w = new Wallet(pkHex);
+export function connectWallet(skHex: string, rpcUrl: string, chainId: number): Wallet {
+  const w = new Wallet(skHex);
   return w.connect(makeProvider(rpcUrl, chainId));
 }
 

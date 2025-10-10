@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { readFileSync } from "node:fs";
-import { getEvmPrivateKey } from "../appd.js";
-import { privateKeyToWallet } from "../keys.js";
+import { getEvmSecretKey } from "../appd.js";
+import { secretKeyToWallet } from "../keys.js";
 import { makeProvider, deployContract } from "../evm.js";
 
 const KEY_ID = process.env.KEY_ID ?? "evm:base:sepolia";
@@ -35,8 +35,8 @@ async function main() {
     throw new Error(`Failed to parse constructor args JSON: ${String(e)}`);
   }
 
-  const pk = await getEvmPrivateKey(KEY_ID);
-  const wallet = privateKeyToWallet(pk).connect(makeProvider(RPC_URL, CHAIN_ID));
+  const sk = await getEvmSecretKey(KEY_ID);
+  const wallet = secretKeyToWallet(sk).connect(makeProvider(RPC_URL, CHAIN_ID));
   const { address, receipt } = await deployContract(wallet, abi, bytecode, args);
 
   console.log(JSON.stringify({ contractAddress: address, txHash: receipt.hash, status: receipt.status }, null, 2));

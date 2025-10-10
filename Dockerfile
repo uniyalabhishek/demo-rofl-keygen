@@ -13,8 +13,7 @@ COPY hardhat.config.cjs ./
 RUN npm run build && npm run compile:contracts && npm prune --omit=dev
 
 ENV NODE_ENV=production
-ENV PORT=8080
-EXPOSE 8080
 
-# Keep artifacts/ in the image (compiled in previous step) so we can deploy via /deploy-counter
-CMD ["node", "dist/server.js"]
+# Run a self-contained smoke test once, then keep the container alive so
+# you can read logs via `oasis rofl machine logs`.
+CMD ["sh", "-c", "node dist/scripts/smoke-test.js || true; tail -f /dev/null"]
