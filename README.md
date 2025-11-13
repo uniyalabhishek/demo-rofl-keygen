@@ -1,7 +1,8 @@
 # demo-rofl-keygen
 
-- **Generates an EVM secp256k1 key inside ROFL** via the `appd` REST API
-  (UNIX socket `/run/rofl-appd.sock`).
+- **Generates an EVM secp256k1 key inside ROFL** using the
+  **`@oasisprotocol/rofl-client`** SDK (over the `appd` UNIX socket at
+  `/run/rofl-appd.sock`).
 - Derives the **EVM address**, **signs** a message, **deploys a contract**,
   and **sends** an EIP‑1559 transaction on **Base Sepolia (chainId 84532)**.
 - Runs a **smoke test** on container start that demonstrates key generation,

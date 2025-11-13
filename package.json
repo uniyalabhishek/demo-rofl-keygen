@@ -22,6 +22,7 @@
     "deploy-counter": "npm run compile:contracts && node dist/scripts/deploy-contract.js ./artifacts/contracts/Counter.sol/Counter.json '[]'"
   },
   "dependencies": {
+    "@oasisprotocol/rofl-client": "^0.1.1",
     "dotenv": "^17.2.3",
     "ethers": "^6.15.0"
   },
